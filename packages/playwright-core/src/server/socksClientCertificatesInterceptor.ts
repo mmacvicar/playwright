@@ -42,6 +42,10 @@ function loadDummyServerCertsIfNeeded() {
   dummyServerTlsOptions = { key, cert };
 }
 
+type SocksProxyConnectionOptions = {
+  __testHookLookup?: (hostname: string) => { address: string, family: 4 | 6 }[];
+};
+
 // Client Certificates in Playwright are implemented as a SOCKS5 proxy that injects client certificates into the TLS handshake.
 // We do that to avoid patching the browsers TLS stack and expose the certificates there.
 // The following shows two flow diagrams, one for http:// and one for https://.
@@ -103,12 +107,14 @@ class SocksProxyConnection {
   private _brorwserDecrypted: Promise<tls.TLSSocket> | undefined;
   private _serverCloseEventListener: () => void;
   private _closed = false;
+  private _options: SocksProxyConnectionOptions;
 
-  constructor(socksProxy: ClientCertificatesProxy, uid: string, host: string, port: number) {
+  constructor(socksProxy: ClientCertificatesProxy, uid: string, host: string, port: number, options: SocksProxyConnectionOptions) {
     this.socksProxy = socksProxy;
     this.uid = uid;
     this.host = host;
     this.port = port;
+    this._options = options;
     this._serverCloseEventListener = () => {
       this._browserEncrypted.destroy();
     };
@@ -133,7 +139,7 @@ class SocksProxyConnection {
     if (proxyAgent)
       this._serverEncrypted = await proxyAgent.connect(new EventEmitter() as any, { host: rewriteToLocalhostIfNeeded(this.host), port: this.port, secureEndpoint: false });
     else
-      this._serverEncrypted = await createSocket(rewriteToLocalhostIfNeeded(this.host), this.port);
+      this._serverEncrypted = await createSocket({ host: rewriteToLocalhostIfNeeded(this.host), port: this.port, __testHookLookup: this._options.__testHookLookup } as any);
 
     this._serverEncrypted.once('close', this._serverCloseEventListener);
     this._serverEncrypted.once('error', error => this._browserEncrypted.destroy(error));
@@ -286,7 +292,7 @@ export class ClientCertificatesProxy {
   private _proxy: types.ProxySettings | undefined;
 
   private constructor(
-    contextOptions: Pick<types.BrowserContextOptions, 'clientCertificates' | 'ignoreHTTPSErrors' | 'proxy'>
+    contextOptions: Pick<types.BrowserContextOptions, 'clientCertificates' | 'ignoreHTTPSErrors' | 'proxy'> & SocksProxyConnectionOptions
   ) {
     verifyClientCertificates(contextOptions.clientCertificates);
     this.ignoreHTTPSErrors = contextOptions.ignoreHTTPSErrors;
@@ -296,7 +302,9 @@ export class ClientCertificatesProxy {
     this._socksProxy.setPattern('*');
     this._socksProxy.addListener(SocksProxy.Events.SocksRequested, async (payload: SocksSocketRequestedPayload) => {
       try {
-        const connection = new SocksProxyConnection(this, payload.uid, payload.host, payload.port);
+        const connection = new SocksProxyConnection(this, payload.uid, payload.host, payload.port, {
+          __testHookLookup: contextOptions.__testHookLookup,
+        });
         await connection.connect();
         this._connections.set(payload.uid, connection);
       } catch (error) {
@@ -344,7 +352,7 @@ export class ClientCertificatesProxy {
     }
   }
 
-  public static async create(progress: Progress, contextOptions: Pick<types.BrowserContextOptions, 'clientCertificates' | 'ignoreHTTPSErrors' | 'proxy'>) {
+  public static async create(progress: Progress, contextOptions: Pick<types.BrowserContextOptions, 'clientCertificates' | 'ignoreHTTPSErrors' | 'proxy'> & SocksProxyConnectionOptions) {
     const proxy = new ClientCertificatesProxy(contextOptions);
     try {
       await progress.race(proxy._socksProxy.listen(0, '127.0.0.1'));
