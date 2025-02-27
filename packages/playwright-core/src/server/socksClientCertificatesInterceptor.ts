@@ -440,7 +440,6 @@ export function rewriteOpenSSLErrorIfNeeded(error: Error): Error {
   ].join('\n'));
 }
 
-
 /**
  * Parses the ALPN (Application-Layer Protocol Negotiation) extension from a TLS ClientHello.
  * Based on RFC 8446 (TLS 1.3): https://datatracker.ietf.org/doc/html/rfc8446
