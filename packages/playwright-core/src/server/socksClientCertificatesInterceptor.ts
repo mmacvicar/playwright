@@ -386,14 +386,6 @@ export class ClientCertificatesProxy {
   }
 }
 
-function normalizeOrigin(origin: string): string {
-  try {
-    return new URL(origin).origin;
-  } catch (error) {
-    return origin;
-  }
-}
-
 function convertClientCertificatesToTLSOptions(
   clientCertificates: types.BrowserContextOptions['clientCertificates']
 ): Pick<https.RequestOptions, 'pfx' | 'key' | 'cert'> | undefined {
