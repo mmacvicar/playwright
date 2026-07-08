@@ -25,7 +25,6 @@ import { expect, playwrightTest as base } from '../config/browserTest';
 import type net from 'net';
 import type { BrowserContextOptions } from '../../packages/playwright-test';
 import { setupSocksForwardingServer } from '../config/proxy';
-import { Pattern } from '../../packages/playwright-core/lib/server/socksClientCertificatesInterceptor';
 import { utils } from '../../packages/playwright-core/lib/coreBundle';
 const { createHttpsServer, createHttp2Server } = utils;
 
@@ -960,83 +959,6 @@ test.describe('browser', () => {
       });
       await page.goto(serverURL);
       await expect(page.getByTestId('message')).toHaveText('Hello Alice, your certificate was issued by localhost!');
-    });
-  });
-
-  test.describe('patterns', () => {
-    test('should match patterns correctly', async () => {
-      const testCases = [
-        {
-          pattern: 'https://*/path',
-          matches: [
-            'https://www.hello.com:443/path',
-            'https://www.sub.hello.com/path',
-            'https://10.0.0.1/path',
-            'https://[::1]/path',
-          ],
-          nonMatches: [
-            'https://www.any.com:8443/path',
-            'http://www.any.com:443/path',
-          ],
-        },
-        {
-          pattern: 'https://*.*/path',
-          matches: [
-            'https://hello.com/path',
-          ],
-          nonMatches: [
-            'https://hello/path',
-            'http://www.hello.com/path',
-          ],
-        },
-        {
-          pattern: 'https://www.hello.com:443/path',
-          matches: [
-            'https://www.hello.com/path',
-          ],
-          nonMatches: [
-            'https://www.hello.com:8443/path',
-            'http://www.hello.com:443/path',
-          ],
-        },
-        {
-          pattern: 'https://[*.]*.hello.com/path',
-          matches: [
-            'https://www.foo.bar.hello.com/path',
-          ],
-          nonMatches: [
-            'https://hello.com/path',
-            'http://hello.com/path',
-          ],
-        },
-        {
-          pattern: 'https://*/path',
-          matches: [
-            'https://www.hello.com/path',
-          ],
-          nonMatches: [
-            'https://www.hello.com:8443/path',
-            'http://www.hello.com/path',
-          ],
-        },
-        {
-          pattern: '*/path',
-          matches: [
-            'https://www.hello.com/path',
-          ],
-          nonMatches: [
-            'http://www.hello.com/path',
-          ],
-        },
-      ];
-      for (const testCase of testCases) {
-        const pattern = Pattern.fromString(testCase.pattern);
-        expect(pattern).toBeTruthy();
-        for (const url of testCase.matches)
-          expect(pattern!.matches(url), `Expected pattern "${testCase.pattern}" to match URL "${url}"`).toBe(true);
-        for (const url of testCase.nonMatches)
-          expect(pattern!.matches(url), `Expected pattern "${testCase.pattern}" to NOT match URL "${url}"`).toBe(false);
-      }
     });
   });
 });

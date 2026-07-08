@@ -168,7 +168,7 @@ class SocksProxyConnection {
       this._firstPackageReceived = true;
       // 0x16 is the TLS "handshake" content type. Only intercept it when the origin has a client
       // certificate; otherwise pass the connection through so the browser talks TLS to the server directly.
-      const secureContext = data[0] === 0x16 ? this.socksProxy.secureContextForOrigin(normalizeOrigin(`https://${this.host}:${this.port}`)) : undefined;
+      const secureContext = data[0] === 0x16 ? this.socksProxy.secureContextForOrigin(new URL(`https://${this.host}:${this.port}`).origin) : undefined;
       if (secureContext)
         this._establishTlsTunnel(this._browserEncrypted, data, secureContext);
       else
